@@ -142,7 +142,11 @@ def plot_applications_over_time(applications):
     
     # Convert to DataFrame
     df = pd.DataFrame(applications)
-    df['first_seen_date'] = pd.to_datetime(df['first_seen_date'])
+    df['first_seen_date'] = pd.to_datetime(df['first_seen_date'], errors='coerce')
+    df = df.dropna(subset=['first_seen_date'])  # Remove rows with invalid dates
+    if df.empty:
+        st.info("No valid application dates to display")
+        return
     df['date'] = df['first_seen_date'].dt.date
     
     # Count by date
@@ -229,14 +233,17 @@ def render_recent_events(events):
         'subject', 'confidence', 'action_suggestion'
     ]].copy()
     
-    display_df['event_time'] = pd.to_datetime(display_df['event_time'])
+    display_df['event_time'] = pd.to_datetime(display_df['event_time'], errors='coerce')
+    display_df = display_df.dropna(subset=['event_time'])  # Remove rows with invalid times
     display_df = display_df.sort_values('event_time', ascending=False)
     
-    # Format datetime
-    display_df['event_time'] = display_df['event_time'].dt.strftime('%Y-%m-%d %H:%M')
+    # Format datetime using apply instead of .dt accessor
+    display_df['event_time'] = display_df['event_time'].apply(
+        lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notna(x) else ''
+    )
     
     # Format confidence
-    display_df['confidence'] = display_df['confidence'].apply(lambda x: f"{x:.2f}")
+    display_df['confidence'] = display_df['confidence'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "0.00")
     
     # Rename columns
     display_df.columns = [
@@ -262,9 +269,17 @@ def render_applications_table(applications):
         'platform', 'first_seen_date', 'last_updated'
     ]].copy()
     
-    # Format dates
-    display_df['first_seen_date'] = pd.to_datetime(display_df['first_seen_date']).dt.strftime('%Y-%m-%d')
-    display_df['last_updated'] = pd.to_datetime(display_df['last_updated']).dt.strftime('%Y-%m-%d %H:%M')
+    # Format dates - handle both datetime objects and strings
+    display_df['first_seen_date'] = pd.to_datetime(display_df['first_seen_date'], errors='coerce')
+    display_df['last_updated'] = pd.to_datetime(display_df['last_updated'], errors='coerce')
+    
+    # Now safe to use .dt accessor
+    display_df['first_seen_date'] = display_df['first_seen_date'].apply(
+        lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else ''
+    )
+    display_df['last_updated'] = display_df['last_updated'].apply(
+        lambda x: x.strftime('%Y-%m-%d %H:%M') if pd.notna(x) else ''
+    )
     
     # Rename columns
     display_df.columns = [

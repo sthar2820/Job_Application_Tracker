@@ -81,29 +81,65 @@ class ExtractAgent:
     
     def _extract_company(self, subject: str, from_email: str, body: str) -> str:
         """Extract company name."""
-        # Try from subject patterns
-        patterns = [
-            r'(?:application\s+(?:to|at)|position\s+at|role\s+at)\s+([A-Z][A-Za-z0-9\s&]+?)(?:\s+-|\s+\||$)',
-            r'^([A-Z][A-Za-z0-9\s&]+?)\s+-\s+',
-            r'from\s+([A-Z][A-Za-z0-9\s&]+?)(?:\s+team|\s+recruiting)',
+        # Skip subjects that start with "Your Application for" - extract from sender instead
+        if re.match(r'^Your\s+Application\s+for', subject, re.IGNORECASE):
+            # Jump to sender extraction
+            pass
+        else:
+            # Try from subject patterns - more comprehensive
+            patterns = [
+                r'(?:thank\s+you\s+for\s+applying\s+(?:to|at)|thank\s+you\s+for\s+your\s+application\s+to|application\s+to)\s+([A-Z][A-Za-z0-9\s&\',.\-]+?)(?:\s*$|!)',
+                r'^([A-Z][A-Za-z0-9\s&\',.\-]+?)\s+[-–—]\s+',
+                r'^([A-Z][A-Za-z0-9\s&\',.\-]+?):\s+(?!Your|Application)',
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, subject, re.IGNORECASE)
+                if match:
+                    company = match.group(1).strip()
+                    # Clean up common noise words
+                    company = re.sub(r'\s+(Application|Team|Careers|Jobs|Recruiting)$', '', company, flags=re.IGNORECASE)
+                    # Skip if starts with common non-company words
+                    if re.match(r'^(Your|Application|Thank|Position|Role)\s+', company, re.IGNORECASE):
+                        continue
+                    if len(company) > 2 and len(company) < 100:
+                        return clean_company_name(company)
+        
+        # Try from body (first 500 chars)
+        body_patterns = [
+            r'on\s+behalf\s+of\s+([A-Z][A-Za-z0-9\s&\',.-]+?)(?:\.|,|\n)',
+            r'position\s+at\s+([A-Z][A-Za-z0-9\s&\',.-]+?)(?:\.|,|\n)',
         ]
         
-        for pattern in patterns:
-            match = re.search(pattern, subject)
+        for pattern in body_patterns:
+            match = re.search(pattern, body[:500], re.IGNORECASE)
             if match:
                 company = match.group(1).strip()
-                return clean_company_name(company)
+                if len(company) > 2 and len(company) < 100:
+                    return clean_company_name(company)
         
         # Try from email sender name
         sender_match = re.search(r'^([^<@]+)', from_email)
         if sender_match:
             sender_name = sender_match.group(1).strip()
-            # Remove "via" platforms
+            # Remove "via" platforms and quotes
             sender_name = re.sub(r'\s+via\s+.+$', '', sender_name, flags=re.IGNORECASE)
-            # If looks like company name (not personal name)
-            if not re.search(r'\s+(team|recruiting|talent)', sender_name, re.IGNORECASE):
-                parts = sender_name.split()
-                if len(parts) <= 3 and parts[0][0].isupper():
+            sender_name = sender_name.replace('"', '').strip()
+            
+            # Remove common suffixes like "Jobs", "@ icims", "from X", etc.
+            sender_name = re.sub(r'\s+Jobs$', '', sender_name, flags=re.IGNORECASE)
+            sender_name = re.sub(r'\s+@\s+.*$', '', sender_name)
+            sender_name = re.sub(r'^.*?\s+from\s+', '', sender_name, flags=re.IGNORECASE)
+            sender_name = re.sub(r'\s+Corporate$', '', sender_name, flags=re.IGNORECASE)
+            
+            # Skip if it's clearly a system/person name
+            if re.search(r'(noreply|no-reply|donotreply|autoreply|system|notification|admin)', sender_name, re.IGNORECASE):
+                pass
+            elif re.search(r'^[A-Z][a-z]+\s+[A-Z][a-z]+$', sender_name):  # First Last name pattern
+                pass
+            else:
+                # If looks like company name
+                if len(sender_name) > 2 and len(sender_name) < 50:
                     return clean_company_name(sender_name)
         
         # Fallback: extract from email domain
@@ -116,39 +152,63 @@ class ExtractAgent:
             
             # Use domain as company (without TLD)
             company = domain.split('.')[0]
-            return clean_company_name(company.replace('-', ' ').replace('_', ' '))
+            # Skip generic domains
+            if company.lower() not in ['mail', 'email', 'noreply', 'support', 'info']:
+                return clean_company_name(company.replace('-', ' ').replace('_', ' '))
         
         return "Unknown Company"
     
     def _extract_role(self, subject: str, body: str, snippet: str) -> str:
         """Extract role/position title."""
-        # Try from subject patterns
+        # Try from subject patterns - more comprehensive
         patterns = [
-            r'(?:for|position:|role:)\s+([A-Z][A-Za-z0-9\s,/\-]+?)(?:\s+at|\s+-|\||$)',
-            r'-\s+([A-Z][A-Za-z0-9\s,/\-]+?)(?:\s+at|\s+position|\||$)',
-            r'([A-Z][A-Za-z0-9\s,/\-]+?)\s+(?:position|role)(?:\s+at|$)',
+            r'(?:Your\s+[Aa]pplication\s+for)\s+([A-Z][A-Za-z0-9\s,/\-().&]+?)(?:\s*-|\s*$)',
+            r'^[^:]+:\s+([A-Z][A-Za-z0-9\s,/\-().&]+?)\s+(?:position|role)(?:\s+update|$)',
+            r'(?:position|role|job)(?:\s+as)?:\s+([A-Z][A-Za-z0-9\s,/\-().&]+?)(?:\s+at|update|\n|$)',
+            r'^[^:|-]+\s+[-|]\s+([A-Z][A-Za-z0-9\s,/\-().&]+?)$',
         ]
         
         for pattern in patterns:
-            match = re.search(pattern, subject)
+            match = re.search(pattern, subject, re.IGNORECASE)
             if match:
                 role = match.group(1).strip()
-                # Clean up
-                role = re.sub(r'\s+application$', '', role, flags=re.IGNORECASE)
-                if len(role) > 5 and len(role) < 100:
-                    return role
+                # Clean up common noise
+                role = re.sub(r'\s+(application|update|at|position|job|role|confirmation)$', '', role, flags=re.IGNORECASE)
+                role = re.sub(r'^(the|a|an)\s+', '', role, flags=re.IGNORECASE)
+                
+                # Skip generic phrases
+                if re.match(r'^(applying|application|confirmation|update|career\s+match)$', role, re.IGNORECASE):
+                    continue
+                
+                # Validate length and content
+                if len(role) > 3 and len(role) < 150:
+                    # Skip if it's just company name-like or single word
+                    if not re.match(r'^[A-Z][a-z]+\s*$', role) and ' ' in role:
+                        return role.strip()
         
-        # Try from body
+        # Try from body (more patterns)
         body_patterns = [
-            r'(?:applied for|applying for|position of|role of)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s,/\-]+?)(?:\s+position|\s+role|\.|\n)',
+            r'(?:applied for|applying for|application for|position of|role of)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s,/\-().&]+?)(?:\s+position|\s+role|\s+at|\.|,|\n)',
+            r'(?:position:|role:)\s+([A-Z][A-Za-z0-9\s,/\-().&]+?)(?:\n|\.|$)',
+            r'interest\s+in\s+(?:the\s+)?([A-Z][A-Za-z0-9\s,/\-().&]+?)\s+(?:position|role)',
         ]
         
         for pattern in body_patterns:
-            match = re.search(pattern, body[:500])
+            match = re.search(pattern, body[:800], re.IGNORECASE)
             if match:
                 role = match.group(1).strip()
-                if len(role) > 5 and len(role) < 100:
-                    return role
+                role = re.sub(r'\s+(position|role|job)$', '', role, flags=re.IGNORECASE)
+                if len(role) > 3 and len(role) < 150:
+                    return role.strip()
+        
+        # Try from snippet
+        if snippet:
+            for pattern in patterns:
+                match = re.search(pattern, snippet, re.IGNORECASE)
+                if match:
+                    role = match.group(1).strip()
+                    if len(role) > 3 and len(role) < 150:
+                        return role.strip()
         
         return "Unknown Role"
     
