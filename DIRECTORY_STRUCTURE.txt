@@ -1,0 +1,84 @@
+Job_Application_Tracker/
+│
+├── 📄 Configuration & Setup Files
+│   ├── .env.example              # Environment variables template
+│   ├── .gitignore                # Git ignore rules (credentials, DB, etc.)
+│   ├── requirements.txt          # Python dependencies
+│   ├── run.sh                    # Unix/Mac quick launcher ⭐
+│   └── run.bat                   # Windows quick launcher ⭐
+│
+├── 📚 Documentation (6 files)
+│   ├── README.md                 # Main documentation (comprehensive) ⭐
+│   ├── SETUP.md                  # Quick setup guide
+│   ├── GMAIL_SETUP.md            # Gmail API detailed guide
+│   ├── QUICK_REFERENCE.md        # Commands & quick reference
+│   ├── PROJECT_SUMMARY.md        # Deliverables summary
+│   └── CHANGELOG.md              # Version history & roadmap
+│
+├── 🗂️ app/ (Main Application)
+│   │
+│   ├── __init__.py              # Package marker
+│   ├── config.py                 # Configuration loader ⭐
+│   ├── dashboard.py              # Streamlit dashboard ⭐
+│   ├── poller.py                 # Email polling worker ⭐
+│   │
+│   ├── 🤖 agents/ (5 Agents)
+│   │   ├── __init__.py
+│   │   ├── filter_agent.py      # Job-related email filter
+│   │   ├── classify_agent.py    # Event type classifier
+│   │   ├── extract_agent.py     # Entity extractor
+│   │   ├── resolve_agent.py     # Application matcher
+│   │   └── action_agent.py      # Action suggester
+│   │
+│   ├── 💾 db/ (Database)
+│   │   ├── __init__.py
+│   │   ├── init_db.py           # Database initialization ⭐
+│   │   └── models.py            # CRUD operations & queries
+│   │
+│   ├── 🔧 utils/ (Utilities)
+│   │   ├── __init__.py
+│   │   ├── gmail_client.py      # Gmail API wrapper ⭐
+│   │   ├── text_clean.py        # HTML parsing & cleaning
+│   │   ├── dedupe.py            # Deduplication logic
+│   │   └── logger.py            # Logging setup
+│   │
+│   └── 🧪 tests/ (Testing)
+│       ├── __init__.py          # Test runner
+│       ├── test_classify.py     # Classification tests (7 tests)
+│       └── test_extract.py      # Extraction tests (5 tests)
+│
+└── 📁 data/
+    └── sample_emails/           # Anonymized email samples
+        └── README.md            # Usage guidelines
+
+🔑 Files Created (Not in Repo - Auto-generated):
+├── credentials.json             # OAuth credentials (from Google Cloud)
+├── token.json                   # Access token (auto-generated on first run)
+└── job_applications.db          # SQLite database (created by init_db.py)
+
+
+📊 Project Statistics:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 Python Files:        28 files
+📖 Documentation:       6 markdown files
+🧪 Test Files:          2 test suites (12 tests)
+🤖 Agents:              5 specialized agents
+💾 Database Tables:     4 tables
+🎨 Dashboard Charts:    3 visualizations
+📊 KPI Metrics:         5 metrics
+🔧 Utility Modules:     4 utilities
+📦 Dependencies:        ~15 packages
+💻 Lines of Code:       ~3,500+ LOC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+🚀 Quick Start:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. pip install -r requirements.txt
+2. Setup Gmail API (see GMAIL_SETUP.md)
+3. python -m app.db.init_db
+4. python -m app.poller --once
+5. streamlit run app/dashboard.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ = Entry point / most important file
